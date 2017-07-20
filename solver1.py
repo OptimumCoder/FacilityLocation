@@ -4,9 +4,7 @@
 from collections import namedtuple
 import math
 from gurobipy import *
-from bokeh.plotting import figure, show, output_server
-
-
+from bokeh.plotting import figure, show, output_file
 
 Point = namedtuple("Point", ['x', 'y'])
 Facility = namedtuple("Facility", ['index', 'setup_cost', 'capacity', 'location'])
@@ -89,24 +87,43 @@ def solve_it(input_data):
         parts = lines[i].split()
         customers.append(Customer(i - facility_count, int(parts[0]), Point(float(parts[1]), float(parts[2]))))
 
+    output_file("plot.html", title="Facility Location")
+
+    p = figure(plot_width=800, plot_height=800)
+    # add square with a size, color, and alpha
+
+
     model = Model('Facility Planning')
     f = {}
     setup = {}
     capacity = {}
+    fac_xs = []
+    fac_ys = []
+
     for i in facilities:
         f[i.index] = model.addVar(vtype=GRB.BINARY, name='Facitily %d' %i.index)
         setup[i.index] = i.setup_cost
         capacity[i.index] = i.capacity
-
-    # for k1, v1 in setup.items():
-    #     print("setup_cost" + str(k1) + ": " + str(v1))
+        fac_xs.append(float(i.location[0]))
+        fac_ys.append(float(i.location[1]))
 
     demand = {}
+    cus_xs = []
+    cus_ys = []
     for j in customers:
         demand[j.index] = j.demand
+        cus_xs.append(float(j.location[0]))
+        cus_ys.append(float(j.location[1]))
 
+    print(fac_xs,fac_ys)
     # for k2, v2 in demand.items():
     #     print("demand" + str(k2) + ": " + str(v2))
+
+    p.square(x=fac_xs, y=fac_ys, size=5, color="navy")
+    p.circle(x=cus_xs, y=cus_ys, size = 5, color = "green")  # customer points
+    # show the results
+    show(p)
+
 
     cost = {}
     combo = {}
@@ -117,10 +134,6 @@ def solve_it(input_data):
 
     model.update()
 
-    # for key,value in cost.items():
-    #     print(key,value)
-
-    # Adding Constraints
 
     for i in customers:
         for j in facilities:
@@ -143,13 +156,12 @@ def solve_it(input_data):
         model.setParam(GRB.Param.Presolve, 0)
         model.optimize()
 
+        cust, fac = ()
     if model.status == GRB.Status.OPTIMAL:
         print('Optimal objective: %g' %model.objVal)
-        model.printAttr('x')
-        # for v in model.getVars():
-        #     if v.x != 0:
-        #         print('Customer, Facility: %s' % (v.varName))
-        #         #print(v.varName + ": " + float(v.x))
+        cust, fac = model.getAttr(combo)
+
+
 
         exit(0)
     elif model.status != GRB.Status.INFEASIBLE:
@@ -161,12 +173,6 @@ def solve_it(input_data):
     model.computeIIS()
     model.write("./log/model.ilp")
     print("IIS written to file 'model.ilp'")
-
-
-    # output_data = '%.2f' % obj + ' ' + str(0) + '\n'
-    # output_data += ' '.join(map(str, solution))
-
-    #return output_data
 
 
 import sys
